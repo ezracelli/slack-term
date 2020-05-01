@@ -4,18 +4,19 @@ import (
 	"fmt"
 	"log"
 	"os"
+    "os/exec"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/0xAX/notificator"
+	// "github.com/0xAX/notificator"
 	"github.com/erroneousboat/termui"
 	termbox "github.com/nsf/termbox-go"
 	"github.com/slack-go/slack"
 
 	"github.com/erroneousboat/slack-term/components"
-	"github.com/erroneousboat/slack-term/config"
+	// "github.com/erroneousboat/slack-term/config"
 	"github.com/erroneousboat/slack-term/context"
 	"github.com/erroneousboat/slack-term/views"
 )
@@ -652,20 +653,39 @@ func actionMoveCursorDownThreads(ctx *context.AppContext) {
 // actionNewMessage will set the new message indicator for a channel, and
 // if configured will also display a desktop notification
 func actionNewMessage(ctx *context.AppContext, ev *slack.MessageEvent) {
+    channels := ctx.View.Channels
+    if channels.ChannelItems[channels.SelectedChannel].ID == ev.Channel {
+        return
+    }
+
 	ctx.View.Channels.MarkAsUnread(ev.Channel)
 	termui.Render(ctx.View.Channels)
 
 	// Terminal bell
-	fmt.Print("\a")
+	// fmt.Print("\a")
+
+    cmd := exec.Command(
+        "terminal-notifier",
+        "-title",
+        "slack-term",
+        "-subtitle",
+        fmt.Sprintf("%s", channels.ChannelItems[channels.FindChannel(ev.Channel)].GetChannelName()),
+        "-message",
+        fmt.Sprintf("%s", ev.Text),
+        "-sender",
+        "com.tinyspeck.slackmacgap",
+    )
+
+    cmd.Run()
 
 	// Desktop notification
-	if ctx.Config.Notify == config.NotifyMention {
-		if isMention(ctx, ev) {
-			createNotifyMessage(ctx, ev)
-		}
-	} else if ctx.Config.Notify == config.NotifyAll {
-		createNotifyMessage(ctx, ev)
-	}
+	// if ctx.Config.Notify == config.NotifyMention {
+	// 	if isMention(ctx, ev) {
+	// 		createNotifyMessage(ctx, ev)
+	// 	}
+	// } else if ctx.Config.Notify == config.NotifyAll {
+	// 	createNotifyMessage(ctx, ev)
+	// }
 }
 
 func actionSetPresence(ctx *context.AppContext, channelID string, presence string) {
@@ -780,29 +800,29 @@ func isMention(ctx *context.AppContext, ev *slack.MessageEvent) bool {
 	return false
 }
 
-func createNotifyMessage(ctx *context.AppContext, ev *slack.MessageEvent) {
-	go func() {
-		if notifyTimer != nil {
-			notifyTimer.Stop()
-		}
+// func createNotifyMessage(ctx *context.AppContext, ev *slack.MessageEvent) {
+// 	go func() {
+// 		if notifyTimer != nil {
+// 			notifyTimer.Stop()
+// 		}
 
-		// Only actually notify when time expires
-		notifyTimer = time.NewTimer(time.Second * 2)
-		<-notifyTimer.C
+// 		// Only actually notify when time expires
+// 		notifyTimer = time.NewTimer(time.Second * 2)
+// 		<-notifyTimer.C
 
-		var message string
-		channel := ctx.View.Channels.ChannelItems[ctx.View.Channels.FindChannel(ev.Channel)]
-		switch channel.Type {
-		case components.ChannelTypeChannel:
-			message = fmt.Sprintf("Message received on channel: %s", channel.Name)
-		case components.ChannelTypeGroup:
-			message = fmt.Sprintf("Message received in group: %s", channel.Name)
-		case components.ChannelTypeIM:
-			message = fmt.Sprintf("Message received from: %s", channel.Name)
-		default:
-			message = fmt.Sprintf("Message received from: %s", channel.Name)
-		}
+// 		var message string
+// 		channel := ctx.View.Channels.ChannelItems[ctx.View.Channels.FindChannel(ev.Channel)]
+// 		switch channel.Type {
+// 		case components.ChannelTypeChannel:
+// 			message = fmt.Sprintf("Message received on channel: %s", channel.Name)
+// 		case components.ChannelTypeGroup:
+// 			message = fmt.Sprintf("Message received in group: %s", channel.Name)
+// 		case components.ChannelTypeIM:
+// 			message = fmt.Sprintf("Message received from: %s", channel.Name)
+// 		default:
+// 			message = fmt.Sprintf("Message received from: %s", channel.Name)
+// 		}
 
-		ctx.Notify.Push("slack-term", message, "", notificator.UR_NORMAL)
-	}()
-}
+// 		ctx.Notify.Push("slack-term", message, "", notificator.UR_NORMAL)
+// 	}()
+// }
